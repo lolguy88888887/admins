@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Control Panel</title>
+
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-dark: #1d4ed8;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark-bg: #0f172a;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
+        body { background-color: var(--dark-bg); color: var(--text-main); display: flex; justify-content: center; min-height: 100vh; padding: 20px; }
+
+        .app-container { width: 100%; max-width: 900px; display: flex; flex-direction: column; gap: 20px; }
+
+        /* Login Screen View */
+        .login-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 30px 20px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 15px; max-width: 400px; margin: 40px auto; width: 100%; }
+        .login-title { font-size: 1.4rem; font-weight: 700; color: var(--text-main); }
+        .login-subtitle { font-size: 0.85rem; color: var(--text-muted); }
+        .input-field { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--card-border); background: #0f172a; color: white; font-size: 0.95rem; outline: none; }
+        .input-field:focus { border-color: var(--primary); }
+
+        /* Admin Dashboard Layout */
+        #admin-dashboard { display: none; flex-direction: column; gap: 20px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--card-border); }
+
+        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+        .panel-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .panel-title { font-size: 1rem; font-weight: bold; color: var(--text-main); margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--card-border); padding-bottom: 8px; }
+
+        .btn { padding: 10px 16px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 0.85rem; text-transform: uppercase; transition: opacity 0.2s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn:hover { opacity: 0.9; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: #000; }
+
+        /* Data Tables */
+        .table-container { width: 100%; overflow-x: auto; max-height: 350px; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+        th { background: #0f172a; padding: 10px; color: var(--text-muted); font-weight: 600; position: sticky; top: 0; }
+        td { padding: 10px; border-bottom: 1px solid var(--card-border); }
+        tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Receipt Modal */
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
+        .modal-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; width: 100%; max-width: 380px; padding: 20px; text-align: center; }
+
+        .receipt-paper { background: #ffffff; color: #000000; border-radius: 12px; padding: 20px; text-align: left; font-family: 'Courier New', Courier, monospace; box-shadow: 0 5px 15px rgba(0,0,0,0.3); margin-bottom: 15px; }
+        .receipt-header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 12px; }
+        .receipt-title { font-size: 1.1rem; font-weight: bold; text-transform: uppercase; }
+        .receipt-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem; }
+        .receipt-divider { border-top: 1px dashed #000; margin: 10px 0; }
+        .receipt-total { display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; margin-top: 8px; }
+
+        #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #334155; color: white; padding: 12px 20px; border-radius: 30px; border: 1px solid #475569; font-weight: bold; display: none; z-index: 10000; box-shadow: 0 8px 16px rgba(0,0,0,0.4); text-align: center; width: 90%; max-width: 350px; }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+
+        <!-- ================= 1. ADMIN LOGIN ================= -->
+        <div class="login-card" id="login-view">
+            <div class="login-title">⚙️ Admin Panel</div>
+            <div class="login-subtitle">Sign in with Administrator Credentials</div>
+            
+            <input type="email" id="login-email" class="input-field" placeholder="Admin Email (e.g., admin@system.com)">
+            <input type="password" id="login-password" class="input-field" placeholder="Password">
+
+            <button class="btn btn-primary" onclick="handleAdminLogin()">AUTHENTICATE</button>
+        </div>
+
+        <!-- ================= 2. MAIN DASHBOARD ================= -->
+        <div id="admin-dashboard">
+            <div class="header-bar">
+                <div>
+                    <h2>🛠️ System Administration</h2>
+                    <span id="admin-user-display" style="font-size: 0.85rem; color: var(--text-muted);">Admin User</span>
+                </div>
+                <button class="btn btn-danger" onclick="handleAdminLogout()">Logout</button>
+            </div>
+
+            <div class="dashboard-grid">
+                
+                <!-- CREATE NEW CUSTOMER ACCOUNT -->
+                <div class="panel-card">
+                    <div class="panel-title">👤 Create New Customer</div>
+                    <form style="display: flex; flex-direction: column; gap: 10px;" onsubmit="event.preventDefault(); createCustomerAccount();">
+                        <input type="text" id="new-account-id" class="input-field" placeholder="Account ID (e.g., 20022)" required>
+                        <input type="text" id="new-account-name" class="input-field" placeholder="Full Name (e.g., John Doe)" required>
+                        <input type="number" id="new-account-balance" class="input-field" placeholder="Initial Balance ($)" step="0.01" min="0" value="50.00" required>
+                        <input type="password" id="new-account-passcode" class="input-field" placeholder="Passcode (Min 6 chars)" minlength="6" required>
+                        <button type="submit" class="btn btn-success">CREATE USER ACCOUNT</button>
+                    </form>
+                </div>
+
+                <!-- QUICK BALANCE ADJUSTMENT -->
+                <div class="panel-card">
+                    <div class="panel-title">💵 Adjust Account Balance</div>
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        <input type="text" id="adjust-account-id" class="input-field" placeholder="Target Account ID (e.g., 10011)">
+                        <input type="number" id="adjust-amount" class="input-field" placeholder="Amount ($)" step="0.01">
+                        
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-primary" style="flex: 1;" onclick="updateBalance('add')">➕ ADD FUNDS</button>
+                            <button class="btn btn-warning" style="flex: 1;" onclick="updateBalance('deduct')">➖ DEDUCT</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- ALL ACCOUNTS LIST -->
+            <div class="panel-card">
+                <div class="panel-title">👥 Registered Accounts</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Account ID</th>
+                                <th>Full Name</th>
+                                <th>Current Balance</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accounts-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SYSTEM TRANSACTION AUDIT LOGS -->
+            <div class="panel-card">
+                <div class="panel-title">📜 System-Wide Audit Log</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Sender</th>
+                                <th>Recipient</th>
+                                <th>Amount</th>
+                                <th>Receipt</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- AUDIT RECEIPT MODAL -->
+    <div class="modal-backdrop" id="receipt-modal">
+        <div class="modal-box">
+            <div class="receipt-paper" id="receipt-paper-content">
+                <div class="receipt-header">
+                    <div class="receipt-title">AUDIT RECEIPT</div>
+                    <div style="font-size: 0.75rem; color: #555; margin-top: 4px;">System Audit Log</div>
+                </div>
+                <div class="receipt-row"><span>Ref ID:</span><span id="rcpt-ref">-</span></div>
+                <div class="receipt-row"><span>Date:</span><span id="rcpt-date">-</span></div>
+                <div class="receipt-row"><span>Sender ID/Name:</span><span id="rcpt-sender">-</span></div>
+                <div class="receipt-row"><span>Recipient ID/Name:</span><span id="rcpt-recipient">-</span></div>
+                <div class="receipt-divider"></div>
+                <div class="receipt-row"><span>Status:</span><span style="color: green; font-weight: bold;">VERIFIED</span></div>
+                <div class="receipt-divider"></div>
+                <div class="receipt-total"><span>AMOUNT:</span><span id="rcpt-amount">$0.00</span></div>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-primary" style="flex: 1;" onclick="window.print()">🖨️ PRINT</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="closeReceiptModal()">CLOSE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast">Notification</div>
+
+    <!-- FIREBASE SDK (Modular Imports) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, increment, collection, addDoc, query, onSnapshot, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // ⚠️ REPLACE THIS WITH YOUR FIREBASE CONFIG FROM PROJECT SETTINGS
+       const firebaseConfig = {
+  apiKey: "AIzaSyA03_nm4Zk3RXmgIxKbxXP-pEGWnzmsQOE",
+  authDomain: "pos21-8f88f.firebaseapp.com",
+  databaseURL: "https://pos21-8f88f-default-rtdb.firebaseio.com",
+  projectId: "pos21-8f88f",
+  storageBucket: "pos21-8f88f.firebasestorage.app",
+  messagingSenderId: "49870857272",
+  appId: "1:49870857272:web:d349580c3d5ebb6f93f2cd"
+};
+
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Export Firebase references globally for inline functions
+        window.FB = {
+            auth, db, doc, setDoc, updateDoc, increment, collection, addDoc, query, onSnapshot, getDocs, where, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+        };
+
+        // Real-time Auth Monitoring
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('login-view').style.display = 'none';
+                document.getElementById('admin-dashboard').style.display = 'flex';
+                document.getElementById('admin-user-display').innerText = user.email;
+
+                // Attach Realtime Listeners
+                listenToAccounts();
+                listenToTransactions();
+            } else {
+                document.getElementById('admin-dashboard').style.display = 'none';
+                document.getElementById('login-view').style.display = 'block';
+            }
+        });
+    </script>
+
+    <script>
+        /* ADMIN AUTHENTICATION */
+        async function handleAdminLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value.trim();
+
+            if (!email || !password) {
+                fireToast("❌ Enter email and password.");
+                return;
+            }
+
+            try {
+                await window.FB.signInWithEmailAndPassword(window.FB.auth, email, password);
+            } catch (err) {
+                fireToast("❌ Admin Authentication Failed: " + err.message);
+            }
+        }
+
+        async function handleAdminLogout() {
+            await window.FB.signOut(window.FB.auth);
+            fireToast("Logged out from admin panel.");
+        }
+
+        /* REAL-TIME ACCOUNTS MONITORING */
+        function listenToAccounts() {
+            const accountsCol = window.FB.collection(window.FB.db, "accounts");
+            window.FB.onSnapshot(accountsCol, (snapshot) => {
+                const tbody = document.getElementById('accounts-table-body');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No accounts registered.</td></tr>`;
+                    return;
+                }
+
+                snapshot.forEach((docSnap) => {
+                    const acc = docSnap.data();
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>#${acc.accountId}</strong></td>
+                        <td>${acc.name}</td>
+                        <td style="color: var(--success); font-weight: bold;">$${Number(acc.balance).toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-warning" style="padding: 4px 8px; font-size: 0.75rem;" onclick="selectAccountForAdjust('${acc.accountId}')">Adjust</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        /* REAL-TIME AUDIT LOGS MONITORING */
+        function listenToTransactions() {
+            const txCol = window.FB.collection(window.FB.db, "transactions");
+            window.FB.onSnapshot(txCol, (snapshot) => {
+                const tbody = document.getElementById('transactions-table-body');
+                tbody.innerHTML = '';
+
+                if (snapshot.empty) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No transactions logged.</td></tr>`;
+                    return;
+                }
+
+                snapshot.forEach((docSnap) => {
+                    const tx = docSnap.data();
+                    const tr = document.createElement('tr');
+                    
+                    const dateObj = tx.timestamp ? tx.timestamp.toDate() : new Date();
+                    const timeStr = dateObj.toLocaleString();
+
+                    tr.innerHTML = `
+                        <td>${timeStr}</td>
+                        <td>${tx.senderName || tx.senderId}</td>
+                        <td>${tx.recipientName || tx.recipientId}</td>
+                        <td style="font-weight: bold;">$${Number(tx.amount).toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-primary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="viewTxReceipt('${docSnap.id}', '${timeStr}', '${tx.senderName || tx.senderId}', '${tx.recipientName || tx.recipientId}', ${tx.amount})">Receipt</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            });
+        }
+
+        /* CREATE NEW USER ACCOUNT */
+        async function createCustomerAccount() {
+            const accountId = document.getElementById('new-account-id').value.trim();
+            const name = document.getElementById('new-account-name').value.trim();
+            const balance = parseFloat(document.getElementById('new-account-balance').value);
+            const passcode = document.getElementById('new-account-passcode').value.trim();
+
+            if (!accountId || !name || isNaN(balance) || !passcode) {
+                fireToast("❌ Fill out all user creation fields.");
+                return;
+            }
+
+            try {
+                const internalEmail = `${accountId}@wallet.local`;
+                
+                // Create Firebase Auth Credentials
+                const cred = await window.FB.createUserWithEmailAndPassword(window.FB.auth, internalEmail, passcode);
+                
+                // Store User Profile Document in Firestore
+                await window.FB.setDoc(window.FB.doc(window.FB.db, "accounts", cred.user.uid), {
+                    accountId: accountId,
+                    name: name,
+                    balance: balance
+                });
+
+                fireToast(`✅ User ${name} (#${accountId}) Created!`);
+                
+                // Clear Form Inputs
+                document.getElementById('new-account-id').value = '';
+                document.getElementById('new-account-name').value = '';
+                document.getElementById('new-account-balance').value = '50.00';
+                document.getElementById('new-account-passcode').value = '';
+            } catch (err) {
+                fireToast("❌ Account Creation Error: " + err.message);
+            }
+        }
+
+        /* BALANCE ADJUSTMENTS */
+        function selectAccountForAdjust(accId) {
+            document.getElementById('adjust-account-id').value = accId;
+        }
+
+        async function updateBalance(action) {
+            const accountId = document.getElementById('adjust-account-id').value.trim();
+            const amount = parseFloat(document.getElementById('adjust-amount').value);
+
+            if (!accountId || isNaN(amount) || amount <= 0) {
+                fireToast("❌ Enter a valid Account ID and positive amount.");
+                return;
+            }
+
+            try {
+                const q = window.FB.query(
+                    window.FB.collection(window.FB.db, "accounts"),
+                    window.FB.where("accountId", "==", accountId)
+                );
+                const querySnap = await window.FB.getDocs(q);
+
+                if (querySnap.empty) {
+                    fireToast("❌ Account ID not found.");
+                    return;
+                }
+
+                const targetDoc = querySnap.docs[0];
+                const adjustmentValue = action === 'add' ? amount : -amount;
+
+                await window.FB.updateDoc(window.FB.doc(window.FB.db, "accounts", targetDoc.id), {
+                    balance: window.FB.increment(adjustmentValue)
+                });
+
+                fireToast(`✅ Balance ${action === 'add' ? 'increased' : 'decreased'} by $${amount.toFixed(2)}.`);
+                document.getElementById('adjust-account-id').value = '';
+                document.getElementById('adjust-amount').value = '';
+            } catch (err) {
+                fireToast("❌ Adjustment Error: " + err.message);
+            }
+        }
+
+        /* AUDIT RECEIPT MODAL FUNCTIONS */
+        function viewTxReceipt(id, date, sender, recipient, amount) {
+            document.getElementById('rcpt-ref').innerText = id.substring(0, 10).toUpperCase();
+            document.getElementById('rcpt-date').innerText = date;
+            document.getElementById('rcpt-sender').innerText = sender;
+            document.getElementById('rcpt-recipient').innerText = recipient;
+            document.getElementById('rcpt-amount').innerText = `$${Number(amount).toFixed(2)}`;
+
+            document.getElementById('receipt-modal').style.display = 'flex';
+        }
+
+        function closeReceiptModal() {
+            document.getElementById('receipt-modal').style.display = 'none';
+        }
+
+        function fireToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.innerText = msg;
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 3500);
+        }
+    </script>
+</body>
+</html>
