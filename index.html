@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Control Panel</title>
 
+    <!-- JsBarcode Library for rendering barcodes -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+
     <style>
         :root {
             --primary: #3b82f6;
@@ -52,8 +55,11 @@
         .table-container { width: 100%; overflow-x: auto; max-height: 350px; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
         th { background: #0f172a; padding: 10px; color: var(--text-muted); font-weight: 600; position: sticky; top: 0; }
-        td { padding: 10px; border-bottom: 1px solid var(--card-border); }
+        td { padding: 10px; border-bottom: 1px solid var(--card-border); vertical-align: middle; }
         tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Barcode styling */
+        .barcode-svg { max-height: 40px; background: #ffffff; border-radius: 4px; padding: 2px; }
 
         /* Receipt Modal */
         .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
@@ -132,6 +138,7 @@
                         <thead>
                             <tr>
                                 <th>Account ID</th>
+                                <th>Barcode</th>
                                 <th>Full Name</th>
                                 <th>Current Balance</th>
                                 <th>Actions</th>
@@ -202,17 +209,15 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, updateDoc, increment, collection, addDoc, query, onSnapshot, getDocs, where } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // ⚠️ REPLACE THIS WITH YOUR FIREBASE CONFIG FROM PROJECT SETTINGS
-       const firebaseConfig = {
-  apiKey: "AIzaSyA03_nm4Zk3RXmgIxKbxXP-pEGWnzmsQOE",
-  authDomain: "pos21-8f88f.firebaseapp.com",
-  databaseURL: "https://pos21-8f88f-default-rtdb.firebaseio.com",
-  projectId: "pos21-8f88f",
-  storageBucket: "pos21-8f88f.firebasestorage.app",
-  messagingSenderId: "49870857272",
-  appId: "1:49870857272:web:d349580c3d5ebb6f93f2cd"
-};
-
+        const firebaseConfig = {
+            apiKey: "AIzaSyA03_nm4Zk3RXmgIxKbxXP-pEGWnzmsQOE",
+            authDomain: "pos21-8f88f.firebaseapp.com",
+            databaseURL: "https://pos21-8f88f-default-rtdb.firebaseio.com",
+            projectId: "pos21-8f88f",
+            storageBucket: "pos21-8f88f.firebasestorage.app",
+            messagingSenderId: "49870857272",
+            appId: "1:49870857272:web:d349580c3d5ebb6f93f2cd"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -271,15 +276,18 @@
                 tbody.innerHTML = '';
 
                 if (snapshot.empty) {
-                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No accounts registered.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No accounts registered.</td></tr>`;
                     return;
                 }
 
                 snapshot.forEach((docSnap) => {
                     const acc = docSnap.data();
                     const tr = document.createElement('tr');
+                    const barcodeId = `barcode-${acc.accountId}`;
+
                     tr.innerHTML = `
                         <td><strong>#${acc.accountId}</strong></td>
+                        <td><svg id="${barcodeId}" class="barcode-svg"></svg></td>
                         <td>${acc.name}</td>
                         <td style="color: var(--success); font-weight: bold;">$${Number(acc.balance).toFixed(2)}</td>
                         <td>
@@ -287,6 +295,20 @@
                         </td>
                     `;
                     tbody.appendChild(tr);
+
+                    // Render barcode for the account ID
+                    try {
+                        JsBarcode(`#${barcodeId}`, acc.accountId, {
+                            format: "CODE128",
+                            width: 1.5,
+                            height: 35,
+                            displayValue: false,
+                            background: "#ffffff",
+                            lineColor: "#000000"
+                        });
+                    } catch (e) {
+                        console.error("Barcode rendering error:", e);
+                    }
                 });
             });
         }
