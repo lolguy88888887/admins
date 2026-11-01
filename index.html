@@ -169,8 +169,8 @@
                     <input type="text" id="edit-account-name" class="input-field" placeholder="Enter new name" required>
                 </div>
                 <div>
-                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">RESET PASSWORD / PASSCODE</label>
-                    <input type="password" id="edit-account-passcode" class="input-field" placeholder="Enter new passcode (min 6 chars)" minlength="6">
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">SEND PASSCODE RESET LINK</label>
+                    <button class="btn btn-warning" style="width: 100%;" onclick="sendResetEmailForAccount()">📧 Send Password Reset Email</button>
                 </div>
             </div>
 
@@ -346,7 +346,6 @@
             document.getElementById('edit-acc-id').value = accId;
             document.getElementById('edit-account-id-display').value = `#${accId}`;
             document.getElementById('edit-account-name').value = currentName;
-            document.getElementById('edit-account-passcode').value = '';
             document.getElementById('edit-user-modal').style.display = 'flex';
         }
 
@@ -356,9 +355,7 @@
 
         async function saveAccountCredentials() {
             const docId = document.getElementById('edit-doc-id').value;
-            const accId = document.getElementById('edit-acc-id').value;
             const newName = document.getElementById('edit-account-name').value.trim();
-            const newPasscode = document.getElementById('edit-account-passcode').value.trim();
 
             if (!newName) {
                 fireToast("❌ Name cannot be empty.");
@@ -366,27 +363,24 @@
             }
 
             try {
-                // Update Firestore Name
                 await window.FB.updateDoc(window.FB.doc(window.FB.db, "accounts", docId), {
                     name: newName
                 });
-
-                // If passcode is provided, trigger password reset email to their internal mock email
-                if (newPasscode) {
-                    if (newPasscode.length < 6) {
-                        fireToast("❌ Passcode must be at least 6 characters.");
-                        return;
-                    }
-                    const internalEmail = `${accId}@wallet.local`;
-                    await window.FB.sendPasswordResetEmail(window.FB.auth, internalEmail);
-                    fireToast(`✅ Name updated & Password reset link sent to ${internalEmail}`);
-                } else {
-                    fireToast("✅ Account name updated successfully!");
-                }
-
+                fireToast("✅ Account name updated successfully!");
                 closeEditUserModal();
             } catch (err) {
                 fireToast("❌ Update Error: " + err.message);
+            }
+        }
+
+        async function sendResetEmailForAccount() {
+            const accId = document.getElementById('edit-acc-id').value;
+            const internalEmail = `${accId}@wallet.local`;
+            try {
+                await window.FB.sendPasswordResetEmail(window.FB.auth, internalEmail);
+                fireToast(`✅ Password reset email sent to ${internalEmail}`);
+            } catch (err) {
+                fireToast("❌ Error sending reset email: " + err.message);
             }
         }
 
