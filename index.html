@@ -53,8 +53,11 @@
         tr:hover { background: rgba(255,255,255,0.02); }
 
         .barcode-svg { max-height: 40px; background: #ffffff; border-radius: 4px; padding: 2px; }
-
         .whitelist-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; margin-top: 6px; font-size: 0.85rem; }
+
+        /* Modals */
+        .modal-backdrop { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.85); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
+        .modal-box { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; width: 100%; max-width: 400px; padding: 20px; text-align: left; }
 
         #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #334155; color: white; padding: 12px 20px; border-radius: 30px; border: 1px solid #475569; font-weight: bold; display: none; z-index: 10000; box-shadow: 0 8px 16px rgba(0,0,0,0.4); text-align: center; width: 90%; max-width: 350px; }
     </style>
@@ -135,6 +138,7 @@
                                 <th>Barcode</th>
                                 <th>Name / Username</th>
                                 <th>Balance</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="accounts-table-body">
@@ -148,12 +152,41 @@
 
     </div>
 
+    <!-- EDIT USER MODAL FOR PASSCODE & NAME -->
+    <div class="modal-backdrop" id="edit-user-modal">
+        <div class="modal-box">
+            <div class="panel-title">✏️ Edit Account Credentials</div>
+            <input type="hidden" id="edit-doc-id">
+            <input type="hidden" id="edit-acc-id">
+            
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">ACCOUNT ID</label>
+                    <input type="text" id="edit-account-id-display" class="input-field" disabled style="opacity: 0.7;">
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">FULL NAME / USERNAME</label>
+                    <input type="text" id="edit-account-name" class="input-field" placeholder="Enter new name" required>
+                </div>
+                <div>
+                    <label style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 4px;">RESET PASSWORD / PASSCODE</label>
+                    <input type="password" id="edit-account-passcode" class="input-field" placeholder="Enter new passcode (min 6 chars)" minlength="6">
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-success" style="flex: 1;" onclick="saveAccountCredentials()">SAVE CHANGES</button>
+                <button class="btn btn-danger" style="flex: 1;" onclick="closeEditUserModal()">CANCEL</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast">Notification</div>
 
     <!-- FIREBASE SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, getDoc, deleteDoc, updateDoc, collection, query, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -171,7 +204,7 @@
         const db = getFirestore(app);
 
         window.FB = {
-            auth, db, doc, setDoc, getDoc, deleteDoc, updateDoc, collection, query, onSnapshot, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+            auth, db, doc, setDoc, getDoc, deleteDoc, updateDoc, collection, query, onSnapshot, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail
         };
 
         onAuthStateChanged(auth, async (user) => {
@@ -307,13 +340,63 @@
             }
         }
 
+        /* EDIT USER ACCOUNT & PASSCODE */
+        function openEditUserModal(docId, accId, currentName) {
+            document.getElementById('edit-doc-id').value = docId;
+            document.getElementById('edit-acc-id').value = accId;
+            document.getElementById('edit-account-id-display').value = `#${accId}`;
+            document.getElementById('edit-account-name').value = currentName;
+            document.getElementById('edit-account-passcode').value = '';
+            document.getElementById('edit-user-modal').style.display = 'flex';
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('edit-user-modal').style.display = 'none';
+        }
+
+        async function saveAccountCredentials() {
+            const docId = document.getElementById('edit-doc-id').value;
+            const accId = document.getElementById('edit-acc-id').value;
+            const newName = document.getElementById('edit-account-name').value.trim();
+            const newPasscode = document.getElementById('edit-account-passcode').value.trim();
+
+            if (!newName) {
+                fireToast("❌ Name cannot be empty.");
+                return;
+            }
+
+            try {
+                // Update Firestore Name
+                await window.FB.updateDoc(window.FB.doc(window.FB.db, "accounts", docId), {
+                    name: newName
+                });
+
+                // If passcode is provided, trigger password reset email to their internal mock email
+                if (newPasscode) {
+                    if (newPasscode.length < 6) {
+                        fireToast("❌ Passcode must be at least 6 characters.");
+                        return;
+                    }
+                    const internalEmail = `${accId}@wallet.local`;
+                    await window.FB.sendPasswordResetEmail(window.FB.auth, internalEmail);
+                    fireToast(`✅ Name updated & Password reset link sent to ${internalEmail}`);
+                } else {
+                    fireToast("✅ Account name updated successfully!");
+                }
+
+                closeEditUserModal();
+            } catch (err) {
+                fireToast("❌ Update Error: " + err.message);
+            }
+        }
+
         /* REAL-TIME ACCOUNTS MONITORING */
         function listenToAccounts() {
             window.FB.onSnapshot(window.FB.collection(window.FB.db, "accounts"), (snapshot) => {
                 const tbody = document.getElementById('accounts-table-body');
                 tbody.innerHTML = '';
                 if (snapshot.empty) {
-                    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No accounts registered.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No accounts registered.</td></tr>`;
                     return;
                 }
 
@@ -327,6 +410,9 @@
                         <td><svg id="${barcodeId}" class="barcode-svg"></svg></td>
                         <td>${acc.name}</td>
                         <td style="color: var(--success); font-weight: bold;">$${Number(acc.balance).toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-primary" style="padding: 4px 8px; font-size: 0.75rem;" onclick="openEditUserModal('${docSnap.id}', '${acc.accountId}', '${acc.name}')">✏️ Edit</button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
 
